@@ -1,0 +1,851 @@
+#!/usr/bin/env npx tsx
+
+import path from "node:path";
+import os from "node:os";
+import fs from "node:fs/promises";
+import http from "node:http";
+import { google, gmail_v1, calendar_v3 } from "googleapis";
+import { OAuth2Client } from "google-auth-library";
+import open from "open";
+
+// ============================================================================
+// Configuration - XDG Base Directory spec
+// ============================================================================
+
+function getConfigDir(): string {
+  const xdgConfig = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
+  return path.join(xdgConfig, "gmail-skill");
+}
+
+const CONFIG_DIR = getConfigDir();
+const CREDENTIALS_PATH = path.join(CONFIG_DIR, "credentials.json");
+const TOKEN_PATH = path.join(CONFIG_DIR, "token.json");
+
+// All scopes we need
+const SCOPES = [
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+];
+
+// ============================================================================
+// Output helpers
+// ============================================================================
+
+interface CommandResult {
+  success: boolean;
+  data?: unknown;
+  error?: string;
+}
+
+function output(result: CommandResult): void {
+  console.log(JSON.stringify(result, null, 2));
+}
+
+function fail(error: string): never {
+  output({ success: false, error });
+  process.exit(1);
+}
+
+// ============================================================================
+// Setup Instructions
+// ============================================================================
+
+const SETUP_INSTRUCTIONS = `
+═══════════════════════════════════════════════════════════════════════════════
+                         GMAIL SKILL - FIRST TIME SETUP
+═══════════════════════════════════════════════════════════════════════════════
+
+This skill needs Google OAuth credentials to access Gmail and Calendar.
+You only need to do this ONCE - credentials are stored in:
+  ${CREDENTIALS_PATH}
+
+STEP 1: Create a Google Cloud Project
+──────────────────────────────────────
+1. Go to: https://console.cloud.google.com/
+2. Click the project dropdown (top left) → "New Project"
+3. Name it anything (e.g., "Gmail Skill") → Create
+4. Wait for it to be created, then select it
+
+STEP 2: Enable the APIs
+───────────────────────
+1. Go to: https://console.cloud.google.com/apis/library
+2. Search "Gmail API" → Click it → Enable
+3. Search "Google Calendar API" → Click it → Enable
+
+STEP 3: Configure OAuth Consent Screen
+──────────────────────────────────────
+1. Go to: https://console.cloud.google.com/apis/credentials/consent
+2. Select "External" → Create
+3. Fill in:
+   - App name: Gmail Skill (or anything)
+   - User support email: your email
+   - Developer contact: your email
+4. Click "Save and Continue"
+5. Click "Add or Remove Scopes" → Add these scopes:
+   - https://www.googleapis.com/auth/gmail.readonly
+   - https://www.googleapis.com/auth/gmail.send
+   - https://www.googleapis.com/auth/gmail.modify
+   - https://www.googleapis.com/auth/calendar.readonly
+   - https://www.googleapis.com/auth/calendar.events
+6. Click "Update" → "Save and Continue"
+7. Add your email as a test user → "Save and Continue"
+8. Click "Back to Dashboard"
+
+STEP 4: Create OAuth Credentials
+────────────────────────────────
+1. Go to: https://console.cloud.google.com/apis/credentials
+2. Click "Create Credentials" → "OAuth client ID"
+3. Application type: "Desktop app"
+4. Name: anything (e.g., "Gmail Skill CLI")
+5. Click "Create"
+6. Click "Download JSON"
+7. Save the file to: ${CREDENTIALS_PATH}
+
+   Or copy the values and create the file manually:
+   {
+     "installed": {
+       "client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+       "client_secret": "YOUR_CLIENT_SECRET"
+     }
+   }
+
+STEP 5: Run auth again
+──────────────────────
+Once credentials.json is in place, run:
+  npx tsx scripts/gmail.ts auth
+
+═══════════════════════════════════════════════════════════════════════════════
+`;
+
+// ============================================================================
+// Authentication
+// ============================================================================
+
+interface Credentials {
+  client_id: string;
+  client_secret: string;
+}
+
+async function loadCredentials(): Promise<Credentials> {
+  try {
+    const content = await fs.readFile(CREDENTIALS_PATH, "utf-8");
+    const data = JSON.parse(content);
+
+    // Handle both formats: {installed: {client_id, client_secret}} or {client_id, client_secret}
+    const creds = data.installed || data.web || data;
+
+    if (!creds.client_id || !creds.client_secret) {
+      throw new Error("Missing client_id or client_secret");
+    }
+
+    return {
+      client_id: creds.client_id,
+      client_secret: creds.client_secret,
+    };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      console.error(SETUP_INSTRUCTIONS);
+      fail(`Credentials not found at ${CREDENTIALS_PATH}`);
+    }
+    throw err;
+  }
+}
+
+async function loadToken(): Promise<OAuth2Client> {
+  const credentials = await loadCredentials();
+
+  try {
+    const content = await fs.readFile(TOKEN_PATH, "utf-8");
+    const tokenData = JSON.parse(content);
+
+    const oauth2Client = new google.auth.OAuth2(
+      credentials.client_id,
+      credentials.client_secret,
+      "http://localhost:3000/callback"
+    );
+
+    oauth2Client.setCredentials({
+      refresh_token: tokenData.refresh_token,
+    });
+
+    return oauth2Client;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      fail(
+        `Token not found. Run: npx tsx scripts/gmail.ts auth\n` +
+        `Token location: ${TOKEN_PATH}`
+      );
+    }
+    throw err;
+  }
+}
+
+async function performAuth(): Promise<void> {
+  const credentials = await loadCredentials();
+
+  // Ensure config directory exists
+  await fs.mkdir(CONFIG_DIR, { recursive: true });
+
+  const oauth2Client = new google.auth.OAuth2(
+    credentials.client_id,
+    credentials.client_secret,
+    "http://localhost:3000/callback"
+  );
+
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    scope: SCOPES,
+    prompt: "consent",
+  });
+
+  console.error("\nOpening browser for authentication...");
+  console.error("If browser doesn't open, visit:\n", authUrl, "\n");
+
+  const code = await new Promise<string>((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url!, `http://localhost:3000`);
+      const code = url.searchParams.get("code");
+      const error = url.searchParams.get("error");
+
+      if (error) {
+        res.writeHead(400, { "Content-Type": "text/html" });
+        res.end(`<h1>Error: ${error}</h1><p>You can close this window.</p>`);
+        server.close();
+        reject(new Error(error));
+        return;
+      }
+
+      if (code) {
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(`
+          <html>
+            <body style="font-family: system-ui; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
+              <div style="text-align: center;">
+                <h1 style="color: #22c55e;">✓ Authentication Successful!</h1>
+                <p>You can close this window and return to the terminal.</p>
+              </div>
+            </body>
+          </html>
+        `);
+        server.close();
+        resolve(code);
+        return;
+      }
+
+      res.writeHead(404);
+      res.end();
+    });
+
+    server.listen(3000, () => {
+      open(authUrl).catch(() => {
+        console.error("Could not open browser automatically.");
+      });
+    });
+
+    setTimeout(() => {
+      server.close();
+      reject(new Error("Authentication timeout (5 minutes)"));
+    }, 300000);
+  });
+
+  const { tokens } = await oauth2Client.getToken(code);
+
+  if (!tokens.refresh_token) {
+    fail(
+      "No refresh token received.\n" +
+      "This can happen if you've already authorized this app.\n" +
+      "Fix: Go to https://myaccount.google.com/permissions\n" +
+      "     Remove access for this app, then run auth again."
+    );
+  }
+
+  const tokenData = {
+    refresh_token: tokens.refresh_token,
+    scope: tokens.scope,
+    token_type: tokens.token_type,
+  };
+
+  await fs.writeFile(TOKEN_PATH, JSON.stringify(tokenData, null, 2));
+  console.error(`\n✓ Token saved to ${TOKEN_PATH}`);
+}
+
+// ============================================================================
+// Gmail Operations
+// ============================================================================
+
+async function getGmailClient(): Promise<gmail_v1.Gmail> {
+  const auth = await loadToken();
+  return google.gmail({ version: "v1", auth });
+}
+
+interface MessageSummary {
+  id: string;
+  threadId: string;
+  subject: string;
+  from: string;
+  to: string;
+  date: string;
+  snippet: string;
+  labelIds: string[];
+}
+
+async function listMessages(
+  gmail: gmail_v1.Gmail,
+  query: string = "",
+  maxResults: number = 10
+): Promise<MessageSummary[]> {
+  const res = await gmail.users.messages.list({
+    userId: "me",
+    q: query,
+    maxResults,
+  });
+
+  const messages = res.data.messages || [];
+  const summaries: MessageSummary[] = [];
+
+  for (const msg of messages) {
+    const detail = await gmail.users.messages.get({
+      userId: "me",
+      id: msg.id!,
+      format: "metadata",
+      metadataHeaders: ["Subject", "From", "To", "Date"],
+    });
+
+    const headers = detail.data.payload?.headers || [];
+    const getHeader = (name: string) =>
+      headers.find((h) => h.name === name)?.value || "";
+
+    summaries.push({
+      id: msg.id!,
+      threadId: msg.threadId!,
+      subject: getHeader("Subject"),
+      from: getHeader("From"),
+      to: getHeader("To"),
+      date: getHeader("Date"),
+      snippet: detail.data.snippet || "",
+      labelIds: detail.data.labelIds || [],
+    });
+  }
+
+  return summaries;
+}
+
+interface FullMessage extends MessageSummary {
+  body: string;
+  htmlBody?: string;
+}
+
+function decodeBase64Url(data: string): string {
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(base64, "base64").toString("utf-8");
+}
+
+function extractBody(
+  payload: gmail_v1.Schema$MessagePart | undefined
+): { text: string; html?: string } {
+  if (!payload) return { text: "" };
+
+  if (payload.body?.data) {
+    const content = decodeBase64Url(payload.body.data);
+    if (payload.mimeType === "text/html") {
+      return { text: "", html: content };
+    }
+    return { text: content };
+  }
+
+  if (payload.parts) {
+    let text = "";
+    let html: string | undefined;
+
+    for (const part of payload.parts) {
+      if (part.mimeType === "text/plain" && part.body?.data) {
+        text = decodeBase64Url(part.body.data);
+      } else if (part.mimeType === "text/html" && part.body?.data) {
+        html = decodeBase64Url(part.body.data);
+      } else if (part.parts) {
+        const nested = extractBody(part);
+        if (nested.text) text = nested.text;
+        if (nested.html) html = nested.html;
+      }
+    }
+
+    return { text, html };
+  }
+
+  return { text: "" };
+}
+
+async function readMessage(
+  gmail: gmail_v1.Gmail,
+  messageId: string
+): Promise<FullMessage> {
+  const res = await gmail.users.messages.get({
+    userId: "me",
+    id: messageId,
+    format: "full",
+  });
+
+  const headers = res.data.payload?.headers || [];
+  const getHeader = (name: string) =>
+    headers.find((h) => h.name === name)?.value || "";
+
+  const { text, html } = extractBody(res.data.payload);
+
+  return {
+    id: res.data.id!,
+    threadId: res.data.threadId!,
+    subject: getHeader("Subject"),
+    from: getHeader("From"),
+    to: getHeader("To"),
+    date: getHeader("Date"),
+    snippet: res.data.snippet || "",
+    labelIds: res.data.labelIds || [],
+    body: text,
+    htmlBody: html,
+  };
+}
+
+function createRawMessage(
+  to: string,
+  subject: string,
+  body: string,
+  from?: string
+): string {
+  const messageParts = [
+    `To: ${to}`,
+    from ? `From: ${from}` : "",
+    `Subject: ${subject}`,
+    "Content-Type: text/plain; charset=utf-8",
+    "",
+    body,
+  ].filter(Boolean);
+
+  const message = messageParts.join("\n");
+
+  return Buffer.from(message)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+async function sendMessage(
+  gmail: gmail_v1.Gmail,
+  to: string,
+  subject: string,
+  body: string
+): Promise<{ id: string; threadId: string }> {
+  const raw = createRawMessage(to, subject, body);
+
+  const res = await gmail.users.messages.send({
+    userId: "me",
+    requestBody: { raw },
+  });
+
+  return {
+    id: res.data.id!,
+    threadId: res.data.threadId!,
+  };
+}
+
+async function listLabels(
+  gmail: gmail_v1.Gmail
+): Promise<{ id: string; name: string; type: string }[]> {
+  const res = await gmail.users.labels.list({ userId: "me" });
+  return (res.data.labels || []).map((l) => ({
+    id: l.id!,
+    name: l.name!,
+    type: l.type || "user",
+  }));
+}
+
+async function modifyLabels(
+  gmail: gmail_v1.Gmail,
+  messageId: string,
+  addLabelIds: string[],
+  removeLabelIds: string[]
+): Promise<void> {
+  await gmail.users.messages.modify({
+    userId: "me",
+    id: messageId,
+    requestBody: {
+      addLabelIds,
+      removeLabelIds,
+    },
+  });
+}
+
+async function getProfile(gmail: gmail_v1.Gmail): Promise<{
+  emailAddress: string;
+  messagesTotal: number;
+  threadsTotal: number;
+}> {
+  const res = await gmail.users.getProfile({ userId: "me" });
+  return {
+    emailAddress: res.data.emailAddress!,
+    messagesTotal: res.data.messagesTotal || 0,
+    threadsTotal: res.data.threadsTotal || 0,
+  };
+}
+
+// ============================================================================
+// Calendar Operations
+// ============================================================================
+
+async function getCalendarClient(): Promise<calendar_v3.Calendar> {
+  const auth = await loadToken();
+  return google.calendar({ version: "v3", auth });
+}
+
+interface CalendarSummary {
+  id: string;
+  summary: string;
+  description?: string;
+  primary?: boolean;
+  backgroundColor?: string;
+}
+
+async function listCalendars(
+  calendar: calendar_v3.Calendar
+): Promise<CalendarSummary[]> {
+  const res = await calendar.calendarList.list();
+  return (res.data.items || []).map((c) => ({
+    id: c.id!,
+    summary: c.summary || "",
+    description: c.description,
+    primary: c.primary,
+    backgroundColor: c.backgroundColor,
+  }));
+}
+
+interface EventSummary {
+  id: string;
+  summary: string;
+  description?: string;
+  start: string;
+  end: string;
+  location?: string;
+  attendees?: string[];
+  htmlLink?: string;
+}
+
+async function listEvents(
+  calendar: calendar_v3.Calendar,
+  calendarId: string = "primary",
+  maxResults: number = 10,
+  timeMin?: string,
+  timeMax?: string
+): Promise<EventSummary[]> {
+  const params: calendar_v3.Params$Resource$Events$List = {
+    calendarId,
+    maxResults,
+    singleEvents: true,
+    orderBy: "startTime",
+  };
+
+  if (timeMin) params.timeMin = timeMin;
+  else params.timeMin = new Date().toISOString();
+
+  if (timeMax) params.timeMax = timeMax;
+
+  const res = await calendar.events.list(params);
+  return (res.data.items || []).map((e) => ({
+    id: e.id!,
+    summary: e.summary || "(No title)",
+    description: e.description,
+    start: e.start?.dateTime || e.start?.date || "",
+    end: e.end?.dateTime || e.end?.date || "",
+    location: e.location,
+    attendees: e.attendees?.map((a) => a.email || "").filter(Boolean),
+    htmlLink: e.htmlLink,
+  }));
+}
+
+async function getEvent(
+  calendar: calendar_v3.Calendar,
+  calendarId: string,
+  eventId: string
+): Promise<EventSummary> {
+  const res = await calendar.events.get({ calendarId, eventId });
+  const e = res.data;
+  return {
+    id: e.id!,
+    summary: e.summary || "(No title)",
+    description: e.description,
+    start: e.start?.dateTime || e.start?.date || "",
+    end: e.end?.dateTime || e.end?.date || "",
+    location: e.location,
+    attendees: e.attendees?.map((a) => a.email || "").filter(Boolean),
+    htmlLink: e.htmlLink,
+  };
+}
+
+async function createEvent(
+  calendar: calendar_v3.Calendar,
+  calendarId: string,
+  summary: string,
+  start: string,
+  end: string,
+  description?: string,
+  location?: string,
+  attendees?: string[]
+): Promise<EventSummary> {
+  const event: calendar_v3.Schema$Event = {
+    summary,
+    description,
+    location,
+    start: start.includes("T")
+      ? { dateTime: start, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+      : { date: start },
+    end: end.includes("T")
+      ? { dateTime: end, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+      : { date: end },
+  };
+
+  if (attendees?.length) {
+    event.attendees = attendees.map((email) => ({ email }));
+  }
+
+  const res = await calendar.events.insert({
+    calendarId,
+    requestBody: event,
+  });
+
+  const e = res.data;
+  return {
+    id: e.id!,
+    summary: e.summary || "",
+    description: e.description,
+    start: e.start?.dateTime || e.start?.date || "",
+    end: e.end?.dateTime || e.end?.date || "",
+    location: e.location,
+    attendees: e.attendees?.map((a) => a.email || "").filter(Boolean),
+    htmlLink: e.htmlLink,
+  };
+}
+
+async function deleteEvent(
+  calendar: calendar_v3.Calendar,
+  calendarId: string,
+  eventId: string
+): Promise<void> {
+  await calendar.events.delete({ calendarId, eventId });
+}
+
+// ============================================================================
+// CLI
+// ============================================================================
+
+function parseArgs(args: string[]): { flags: Record<string, string>; positional: string[] } {
+  const flags: Record<string, string> = {};
+  const positional: string[] = [];
+
+  for (const arg of args) {
+    if (arg.startsWith("--")) {
+      const [key, ...valueParts] = arg.slice(2).split("=");
+      flags[key] = valueParts.join("=") || "true";
+    } else {
+      positional.push(arg);
+    }
+  }
+
+  return { flags, positional };
+}
+
+function printUsage(): void {
+  console.log(`
+Gmail & Calendar CLI
+
+SETUP:
+  auth                    Authenticate with Google (opens browser)
+
+GMAIL:
+  list                    List messages
+    --query=QUERY         Search query (Gmail syntax)
+    --max=N               Max results (default: 10)
+  read ID                 Read a message by ID
+  send                    Send an email
+    --to=EMAIL            Recipient (required)
+    --subject=TEXT        Subject (required)
+    --body=TEXT           Body (required)
+  labels                  List all labels
+  label ID                Modify labels on a message
+    --add=LABEL           Add label
+    --remove=LABEL        Remove label
+
+CALENDAR:
+  calendars               List all calendars
+  events                  List upcoming events
+    --calendar=ID         Calendar ID (default: primary)
+    --max=N               Max results (default: 10)
+    --from=ISO_DATE       Start time (default: now)
+    --to=ISO_DATE         End time
+  event ID                Get event details
+    --calendar=ID         Calendar ID (default: primary)
+  create                  Create an event
+    --calendar=ID         Calendar ID (default: primary)
+    --summary=TEXT        Event title (required)
+    --start=ISO_DATE      Start time (required)
+    --end=ISO_DATE        End time (required)
+    --description=TEXT    Description
+    --location=TEXT       Location
+    --attendees=A,B,C     Comma-separated emails
+  delete ID               Delete an event
+    --calendar=ID         Calendar ID (default: primary)
+
+OTHER:
+  check                   Verify authentication
+  profile                 Show Gmail profile
+
+Config directory: ${CONFIG_DIR}
+`);
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const command = args[0];
+  const { flags, positional } = parseArgs(args.slice(1));
+
+  if (!command || command === "help" || command === "--help") {
+    printUsage();
+    process.exit(0);
+  }
+
+  try {
+    switch (command) {
+      // ── Auth ──────────────────────────────────────────────────────────────
+      case "auth": {
+        await performAuth();
+        output({ success: true, data: { message: "Authentication successful", tokenPath: TOKEN_PATH } });
+        break;
+      }
+
+      case "check": {
+        const gmail = await getGmailClient();
+        const profile = await getProfile(gmail);
+        output({
+          success: true,
+          data: {
+            message: "Authenticated",
+            email: profile.emailAddress,
+            configDir: CONFIG_DIR,
+          },
+        });
+        break;
+      }
+
+      case "profile": {
+        const gmail = await getGmailClient();
+        const profile = await getProfile(gmail);
+        output({ success: true, data: profile });
+        break;
+      }
+
+      // ── Gmail ─────────────────────────────────────────────────────────────
+      case "list": {
+        const gmail = await getGmailClient();
+        const query = flags.query || "";
+        const max = parseInt(flags.max || "10", 10);
+        const messages = await listMessages(gmail, query, max);
+        output({ success: true, data: { messages, count: messages.length } });
+        break;
+      }
+
+      case "read": {
+        const messageId = positional[0];
+        if (!messageId) fail("Message ID required. Usage: gmail.ts read <message-id>");
+        const gmail = await getGmailClient();
+        const message = await readMessage(gmail, messageId);
+        output({ success: true, data: message });
+        break;
+      }
+
+      case "send": {
+        const { to, subject, body } = flags;
+        if (!to || !subject || !body) fail("Required: --to, --subject, --body");
+        const gmail = await getGmailClient();
+        const result = await sendMessage(gmail, to, subject, body);
+        output({ success: true, data: { ...result, message: "Email sent" } });
+        break;
+      }
+
+      case "labels": {
+        const gmail = await getGmailClient();
+        const labels = await listLabels(gmail);
+        output({ success: true, data: { labels } });
+        break;
+      }
+
+      case "label": {
+        const messageId = positional[0];
+        if (!messageId) fail("Message ID required");
+        const gmail = await getGmailClient();
+        const addLabels = flags.add ? flags.add.split(",") : [];
+        const removeLabels = flags.remove ? flags.remove.split(",") : [];
+        await modifyLabels(gmail, messageId, addLabels, removeLabels);
+        output({ success: true, data: { message: "Labels updated" } });
+        break;
+      }
+
+      // ── Calendar ──────────────────────────────────────────────────────────
+      case "calendars": {
+        const cal = await getCalendarClient();
+        const calendars = await listCalendars(cal);
+        output({ success: true, data: { calendars } });
+        break;
+      }
+
+      case "events": {
+        const cal = await getCalendarClient();
+        const calendarId = flags.calendar || "primary";
+        const max = parseInt(flags.max || "10", 10);
+        const events = await listEvents(cal, calendarId, max, flags.from, flags.to);
+        output({ success: true, data: { events, count: events.length } });
+        break;
+      }
+
+      case "event": {
+        const eventId = positional[0];
+        if (!eventId) fail("Event ID required");
+        const cal = await getCalendarClient();
+        const calendarId = flags.calendar || "primary";
+        const event = await getEvent(cal, calendarId, eventId);
+        output({ success: true, data: event });
+        break;
+      }
+
+      case "create": {
+        const { summary, start, end, description, location, attendees } = flags;
+        if (!summary || !start || !end) fail("Required: --summary, --start, --end");
+        const cal = await getCalendarClient();
+        const calendarId = flags.calendar || "primary";
+        const attendeeList = attendees ? attendees.split(",").map((e) => e.trim()) : undefined;
+        const event = await createEvent(cal, calendarId, summary, start, end, description, location, attendeeList);
+        output({ success: true, data: { ...event, message: "Event created" } });
+        break;
+      }
+
+      case "delete": {
+        const eventId = positional[0];
+        if (!eventId) fail("Event ID required");
+        const cal = await getCalendarClient();
+        const calendarId = flags.calendar || "primary";
+        await deleteEvent(cal, calendarId, eventId);
+        output({ success: true, data: { message: "Event deleted" } });
+        break;
+      }
+
+      default:
+        output({ success: false, error: `Unknown command: ${command}. Run with --help for usage.` });
+        process.exit(1);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    fail(message);
+  }
+}
+
+main();

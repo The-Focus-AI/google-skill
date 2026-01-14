@@ -1,0 +1,10 @@
+{
+  "name": "gmail-skill",
+  "version": "0.1.0",
+  "description": "Gmail API integration for reading, sending, and managing emails using OAuth 2.0",
+  "author": {
+    "name": "Focus.AI"
+  },
+  "keywords": ["gmail", "email", "google", "oauth"],
+  "skills": ["./.claude-plugin/skills/gmail"]
+}
