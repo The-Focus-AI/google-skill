@@ -24,11 +24,33 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts list --query="is:unread" --max=5
 # Read message
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts read <message-id>
 
-# Send email
+# Send email (plain text)
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send \
   --to="recipient@example.com" \
   --subject="Hello" \
   --body="Message content"
+
+# Send HTML email
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send \
+  --to="recipient@example.com" \
+  --subject="Hello" \
+  --body="Plain text fallback" \
+  --html="<h1>Hello</h1><p>HTML content</p>"
+
+# Send with attachments
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send \
+  --to="recipient@example.com" \
+  --subject="With files" \
+  --body="See attached" \
+  --attachment="/path/to/file.pdf,/path/to/other.docx"
+
+# Send HTML with inline images
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send \
+  --to="recipient@example.com" \
+  --subject="Newsletter" \
+  --body="Plain text version" \
+  --html="<h1>Hello</h1><img src='cid:logo'>" \
+  --inline="/path/to/logo.png:logo"
 
 # Labels
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts labels
