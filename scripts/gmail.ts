@@ -408,22 +408,264 @@ async function readMessage(
   };
 }
 
+interface Attachment {
+  filename: string;
+  content: Buffer;
+  mimeType: string;
+  isInline?: boolean;
+  contentId?: string;
+}
+
+function getMimeType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.txt': 'text/plain',
+    '.html': 'text/html',
+    '.csv': 'text/csv',
+    '.json': 'application/json',
+    '.zip': 'application/zip',
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+
+async function loadAttachment(filePath: string): Promise<Attachment> {
+  const content = await fs.readFile(filePath);
+  const filename = path.basename(filePath);
+  const mimeType = getMimeType(filePath);
+  return { filename, content, mimeType };
+}
+
+async function loadInlineImage(filePath: string, contentId: string): Promise<Attachment> {
+  const content = await fs.readFile(filePath);
+  const filename = path.basename(filePath);
+  const mimeType = getMimeType(filePath);
+  return { filename, content, mimeType, isInline: true, contentId };
+}
+
 function createRawMessage(
   to: string,
   subject: string,
   body: string,
-  from?: string
+  from?: string,
+  html?: string,
+  attachments?: Attachment[],
+  inlineImages?: Attachment[]
 ): string {
-  const messageParts = [
-    `To: ${to}`,
-    from ? `From: ${from}` : "",
-    `Subject: ${subject}`,
-    "Content-Type: text/plain; charset=utf-8",
-    "",
-    body,
-  ].filter(Boolean);
+  const nl = "\r\n";
+  const ts = Date.now();
+  const mixedBoundary = `____mixed_${ts}____`;
+  const altBoundary = `____alt_${ts}____`;
+  const relatedBoundary = `____related_${ts}____`;
 
-  const message = messageParts.join("\n");
+  const hasAttachments = attachments && attachments.length > 0;
+  const hasInlineImages = inlineImages && inlineImages.length > 0;
+  const hasHtml = !!html;
+
+  let message: string;
+
+  if (hasAttachments && hasHtml && hasInlineImages) {
+    // HTML with inline images AND file attachments
+    const headers = [
+      `MIME-Version: 1.0`,
+      `To: ${to}`,
+      from ? `From: ${from}` : null,
+      `Subject: ${subject}`,
+      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+    ].filter(Boolean).join(nl);
+
+    // multipart/related for HTML + inline images
+    const relatedHeader = [
+      `--${mixedBoundary}`,
+      `Content-Type: multipart/related; boundary="${relatedBoundary}"`,
+    ].join(nl);
+
+    const htmlPart = [
+      `--${relatedBoundary}`,
+      `Content-Type: text/html; charset="UTF-8"`,
+      ``,
+      html,
+    ].join(nl);
+
+    const inlineParts = inlineImages!.map(img => {
+      const base64Content = img.content.toString("base64").match(/.{1,76}/g)?.join(nl) || "";
+      return [
+        `--${relatedBoundary}`,
+        `Content-Type: ${img.mimeType}; name="${img.filename}"`,
+        `Content-Transfer-Encoding: base64`,
+        `Content-Disposition: inline; filename="${img.filename}"`,
+        `Content-ID: <${img.contentId}>`,
+        ``,
+        base64Content,
+      ].join(nl);
+    }).join(nl);
+
+    const attachmentParts = attachments!.map(att => {
+      const base64Content = att.content.toString("base64").match(/.{1,76}/g)?.join(nl) || "";
+      return [
+        `--${mixedBoundary}`,
+        `Content-Type: ${att.mimeType}; name="${att.filename}"`,
+        `Content-Disposition: attachment; filename="${att.filename}"`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        base64Content,
+      ].join(nl);
+    }).join(nl);
+
+    message = headers + nl + nl + relatedHeader + nl + nl + htmlPart + nl + inlineParts + nl + `--${relatedBoundary}--` + nl + attachmentParts + nl + `--${mixedBoundary}--`;
+
+  } else if (hasAttachments && hasHtml) {
+    // HTML + attachments, no inline images
+    const headers = [
+      `MIME-Version: 1.0`,
+      `To: ${to}`,
+      from ? `From: ${from}` : null,
+      `Subject: ${subject}`,
+      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+    ].filter(Boolean).join(nl);
+
+    const altHeader = [
+      `--${mixedBoundary}`,
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+    ].join(nl);
+
+    const textPart = [
+      `--${altBoundary}`,
+      `Content-Type: text/plain; charset="UTF-8"`,
+      ``,
+      body,
+    ].join(nl);
+
+    const htmlPart = [
+      `--${altBoundary}`,
+      `Content-Type: text/html; charset="UTF-8"`,
+      ``,
+      html,
+    ].join(nl);
+
+    const attachmentParts = attachments!.map(att => {
+      const base64Content = att.content.toString("base64").match(/.{1,76}/g)?.join(nl) || "";
+      return [
+        `--${mixedBoundary}`,
+        `Content-Type: ${att.mimeType}; name="${att.filename}"`,
+        `Content-Disposition: attachment; filename="${att.filename}"`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        base64Content,
+      ].join(nl);
+    }).join(nl);
+
+    message = headers + nl + nl + altHeader + nl + nl + textPart + nl + htmlPart + nl + `--${altBoundary}--` + nl + attachmentParts + nl + `--${mixedBoundary}--`;
+
+  } else if (hasAttachments) {
+    // Attachments only, no HTML
+    const headers = [
+      `MIME-Version: 1.0`,
+      `To: ${to}`,
+      from ? `From: ${from}` : null,
+      `Subject: ${subject}`,
+      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+    ].filter(Boolean).join(nl);
+
+    const textPart = [
+      `--${mixedBoundary}`,
+      `Content-Type: text/plain; charset="UTF-8"`,
+      ``,
+      body,
+    ].join(nl);
+
+    const attachmentParts = attachments!.map(att => {
+      const base64Content = att.content.toString("base64").match(/.{1,76}/g)?.join(nl) || "";
+      return [
+        `--${mixedBoundary}`,
+        `Content-Type: ${att.mimeType}; name="${att.filename}"`,
+        `Content-Disposition: attachment; filename="${att.filename}"`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        base64Content,
+      ].join(nl);
+    }).join(nl);
+
+    message = headers + nl + nl + textPart + nl + attachmentParts + nl + `--${mixedBoundary}--`;
+
+  } else if (hasHtml && hasInlineImages) {
+    // HTML with inline images, no file attachments
+    const headers = [
+      `MIME-Version: 1.0`,
+      `To: ${to}`,
+      from ? `From: ${from}` : null,
+      `Subject: ${subject}`,
+      `Content-Type: multipart/related; boundary="${relatedBoundary}"`,
+    ].filter(Boolean).join(nl);
+
+    const htmlPart = [
+      `--${relatedBoundary}`,
+      `Content-Type: text/html; charset="UTF-8"`,
+      ``,
+      html,
+    ].join(nl);
+
+    const inlineParts = inlineImages!.map(img => {
+      const base64Content = img.content.toString("base64").match(/.{1,76}/g)?.join(nl) || "";
+      return [
+        `--${relatedBoundary}`,
+        `Content-Type: ${img.mimeType}; name="${img.filename}"`,
+        `Content-Transfer-Encoding: base64`,
+        `Content-Disposition: inline; filename="${img.filename}"`,
+        `Content-ID: <${img.contentId}>`,
+        ``,
+        base64Content,
+      ].join(nl);
+    }).join(nl);
+
+    message = headers + nl + nl + htmlPart + nl + inlineParts + nl + `--${relatedBoundary}--`;
+
+  } else if (hasHtml) {
+    // HTML only
+    const headers = [
+      `MIME-Version: 1.0`,
+      `To: ${to}`,
+      from ? `From: ${from}` : null,
+      `Subject: ${subject}`,
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+    ].filter(Boolean).join(nl);
+
+    const textPart = [
+      `--${altBoundary}`,
+      `Content-Type: text/plain; charset="UTF-8"`,
+      ``,
+      body,
+    ].join(nl);
+
+    const htmlPart = [
+      `--${altBoundary}`,
+      `Content-Type: text/html; charset="UTF-8"`,
+      ``,
+      html,
+    ].join(nl);
+
+    message = headers + nl + nl + textPart + nl + htmlPart + nl + `--${altBoundary}--`;
+
+  } else {
+    // Plain text only
+    message = [
+      `MIME-Version: 1.0`,
+      `To: ${to}`,
+      from ? `From: ${from}` : null,
+      `Subject: ${subject}`,
+      `Content-Type: text/plain; charset="UTF-8"`,
+      ``,
+      body,
+    ].filter(Boolean).join(nl);
+  }
 
   return Buffer.from(message)
     .toString("base64")
@@ -436,9 +678,25 @@ async function sendMessage(
   gmail: gmail_v1.Gmail,
   to: string,
   subject: string,
-  body: string
+  body: string,
+  html?: string,
+  attachmentPaths?: string[],
+  inlineImagePaths?: { path: string; cid: string }[]
 ): Promise<{ id: string; threadId: string }> {
-  const raw = createRawMessage(to, subject, body);
+  let attachments: Attachment[] | undefined;
+  let inlineImages: Attachment[] | undefined;
+
+  if (attachmentPaths && attachmentPaths.length > 0) {
+    attachments = await Promise.all(attachmentPaths.map(loadAttachment));
+  }
+
+  if (inlineImagePaths && inlineImagePaths.length > 0) {
+    inlineImages = await Promise.all(
+      inlineImagePaths.map(img => loadInlineImage(img.path, img.cid))
+    );
+  }
+
+  const raw = createRawMessage(to, subject, body, undefined, html, attachments, inlineImages);
 
   const res = await gmail.users.messages.send({
     userId: "me",
@@ -708,6 +966,8 @@ GMAIL:
     --to=EMAIL            Recipient (required)
     --subject=TEXT        Subject (required)
     --body=TEXT           Body (required)
+    --html=HTML           HTML body (optional)
+    --attachment=PATH     File to attach (optional, comma-separated for multiple)
   labels                  List all labels
   label ID                Modify labels on a message
     --add=LABEL           Add label
@@ -803,11 +1063,23 @@ async function main(): Promise<void> {
       }
 
       case "send": {
-        const { to, subject, body } = flags;
-        if (!to || !subject || !body) fail("Required: --to, --subject, --body");
+        const { to, subject, body, html, attachment } = flags;
+        const inlineFlag = flags["inline"];
+        if (!to || !subject || !body) fail("Required: --to, --subject, --body [--html=<html-content>] [--attachment=<path>] [--inline=<path>:<cid>,...]");
         const gmail = await getGmailClient();
-        const result = await sendMessage(gmail, to, subject, body);
-        output({ success: true, data: { ...result, message: "Email sent" } });
+        const attachmentPaths = attachment ? attachment.split(",").map(p => p.trim()) : undefined;
+        // Parse inline images: --inline="/path/to/img.png:myimage,/path/to/other.jpg:otherimg"
+        let inlineImages: { path: string; cid: string }[] | undefined;
+        if (inlineFlag) {
+          inlineImages = inlineFlag.split(",").map((item: string) => {
+            const [imgPath, cid] = item.trim().split(":");
+            return { path: imgPath, cid };
+          });
+        }
+        const result = await sendMessage(gmail, to, subject, body, html, attachmentPaths, inlineImages);
+        const hasAttachment = attachmentPaths && attachmentPaths.length > 0;
+        const hasInline = inlineImages && inlineImages.length > 0;
+        output({ success: true, data: { ...result, message: hasAttachment || hasInline ? "Email sent with attachment(s)" : (html ? "HTML email sent" : "Email sent") } });
         break;
       }
 
