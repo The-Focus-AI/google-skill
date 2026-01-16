@@ -9,17 +9,30 @@ import { OAuth2Client } from "google-auth-library";
 import open from "open";
 
 // ============================================================================
-// Configuration - XDG Base Directory spec
+// Configuration
 // ============================================================================
 
-function getConfigDir(): string {
+// Global config for OAuth client credentials (same across all projects)
+function getGlobalConfigDir(): string {
   const xdgConfig = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
   return path.join(xdgConfig, "gmail-skill");
 }
 
-const CONFIG_DIR = getConfigDir();
-const CREDENTIALS_PATH = path.join(CONFIG_DIR, "credentials.json");
-const TOKEN_PATH = path.join(CONFIG_DIR, "token.json");
+const GLOBAL_CONFIG_DIR = getGlobalConfigDir();
+const CREDENTIALS_PATH = path.join(GLOBAL_CONFIG_DIR, "credentials.json");
+
+// Project-local token storage (different Google account per project)
+const PROJECT_TOKEN_DIR = ".claude";
+const PROJECT_TOKEN_FILE = "gmail-skill.local.json";
+
+function getProjectTokenPath(): string {
+  return path.join(process.cwd(), PROJECT_TOKEN_DIR, PROJECT_TOKEN_FILE);
+}
+
+// Legacy global token path (for backwards compatibility)
+function getGlobalTokenPath(): string {
+  return path.join(GLOBAL_CONFIG_DIR, "token.json");
+}
 
 // All scopes we need
 const SCOPES = [
@@ -59,8 +72,12 @@ const SETUP_INSTRUCTIONS = `
 ═══════════════════════════════════════════════════════════════════════════════
 
 This skill needs Google OAuth credentials to access Gmail and Calendar.
-You only need to do this ONCE - credentials are stored in:
+
+CREDENTIALS (one-time setup, shared across all projects):
   ${CREDENTIALS_PATH}
+
+TOKENS (per-project, stores which Google account to use):
+  .claude/gmail-skill.local.json (in your project directory)
 
 STEP 1: Create a Google Cloud Project
 ──────────────────────────────────────
@@ -117,6 +134,10 @@ STEP 5: Run auth again
 Once credentials.json is in place, run:
   npx tsx scripts/gmail.ts auth
 
+This will open a browser to authenticate with Google. The token will be saved
+to your project's .claude/ directory, allowing different projects to use
+different Google accounts.
+
 ═══════════════════════════════════════════════════════════════════════════════
 `;
 
@@ -154,11 +175,41 @@ async function loadCredentials(): Promise<Credentials> {
   }
 }
 
+async function findTokenPath(): Promise<string | null> {
+  // Check project-local first
+  const projectPath = getProjectTokenPath();
+  try {
+    await fs.access(projectPath);
+    return projectPath;
+  } catch {
+    // Not found in project
+  }
+
+  // Fall back to global (legacy location)
+  const globalPath = getGlobalTokenPath();
+  try {
+    await fs.access(globalPath);
+    return globalPath;
+  } catch {
+    // Not found anywhere
+  }
+
+  return null;
+}
+
 async function loadToken(): Promise<OAuth2Client> {
   const credentials = await loadCredentials();
+  const tokenPath = await findTokenPath();
+
+  if (!tokenPath) {
+    fail(
+      `Token not found. Run: npx tsx scripts/gmail.ts auth\n` +
+      `Token will be saved to: ${getProjectTokenPath()}`
+    );
+  }
 
   try {
-    const content = await fs.readFile(TOKEN_PATH, "utf-8");
+    const content = await fs.readFile(tokenPath, "utf-8");
     const tokenData = JSON.parse(content);
 
     const oauth2Client = new google.auth.OAuth2(
@@ -173,21 +224,46 @@ async function loadToken(): Promise<OAuth2Client> {
 
     return oauth2Client;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      fail(
-        `Token not found. Run: npx tsx scripts/gmail.ts auth\n` +
-        `Token location: ${TOKEN_PATH}`
-      );
+    fail(`Failed to load token from ${tokenPath}: ${(err as Error).message}`);
+  }
+}
+
+async function ensureGitignore(): Promise<void> {
+  const gitignorePath = path.join(process.cwd(), ".gitignore");
+  const pattern = ".claude/*.local.*";
+
+  try {
+    const content = await fs.readFile(gitignorePath, "utf-8");
+    if (content.includes(pattern)) {
+      return; // Already configured
     }
-    throw err;
+    // Append the pattern
+    const newContent = content.endsWith("\n")
+      ? content + `\n# Gmail skill tokens (per-project auth)\n${pattern}\n`
+      : content + `\n\n# Gmail skill tokens (per-project auth)\n${pattern}\n`;
+    await fs.writeFile(gitignorePath, newContent);
+    console.error(`✓ Added ${pattern} to .gitignore`);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      // No .gitignore, create one
+      await fs.writeFile(gitignorePath, `# Gmail skill tokens (per-project auth)\n${pattern}\n`);
+      console.error(`✓ Created .gitignore with ${pattern}`);
+    } else {
+      throw err;
+    }
   }
 }
 
 async function performAuth(): Promise<void> {
   const credentials = await loadCredentials();
+  const tokenPath = getProjectTokenPath();
+  const tokenDir = path.dirname(tokenPath);
 
-  // Ensure config directory exists
-  await fs.mkdir(CONFIG_DIR, { recursive: true });
+  // Ensure .claude directory exists
+  await fs.mkdir(tokenDir, { recursive: true });
+
+  // Ensure .gitignore is configured to exclude tokens
+  await ensureGitignore();
 
   const oauth2Client = new google.auth.OAuth2(
     credentials.client_id,
@@ -268,8 +344,8 @@ async function performAuth(): Promise<void> {
     token_type: tokens.token_type,
   };
 
-  await fs.writeFile(TOKEN_PATH, JSON.stringify(tokenData, null, 2));
-  console.error(`\n✓ Token saved to ${TOKEN_PATH}`);
+  await fs.writeFile(tokenPath, JSON.stringify(tokenData, null, 2));
+  console.error(`\n✓ Token saved to ${tokenPath}`);
 }
 
 // ============================================================================
@@ -999,7 +1075,8 @@ OTHER:
   check                   Verify authentication
   profile                 Show Gmail profile
 
-Config directory: ${CONFIG_DIR}
+Credentials: ${CREDENTIALS_PATH}
+Token:       .claude/gmail-skill.local.json (per-project)
 `);
 }
 
@@ -1018,19 +1095,21 @@ async function main(): Promise<void> {
       // ── Auth ──────────────────────────────────────────────────────────────
       case "auth": {
         await performAuth();
-        output({ success: true, data: { message: "Authentication successful", tokenPath: TOKEN_PATH } });
+        output({ success: true, data: { message: "Authentication successful", tokenPath: getProjectTokenPath() } });
         break;
       }
 
       case "check": {
         const gmail = await getGmailClient();
         const profile = await getProfile(gmail);
+        const tokenPath = await findTokenPath();
         output({
           success: true,
           data: {
             message: "Authenticated",
             email: profile.emailAddress,
-            configDir: CONFIG_DIR,
+            tokenPath: tokenPath,
+            credentialsPath: CREDENTIALS_PATH,
           },
         });
         break;

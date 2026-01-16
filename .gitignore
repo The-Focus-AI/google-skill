@@ -12,3 +12,6 @@ token.json
 
 # Build outputs
 dist/
+
+# Gmail skill tokens (per-project auth)
+.claude/*.local.*
