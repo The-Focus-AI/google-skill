@@ -15,19 +15,23 @@ All services share a single OAuth authentication. yt-dlp features work without O
 
 ## Installation
 
-### Via Marketplace
+### Via Focus Marketplace (Recommended)
 
 ```bash
-/plugin install The-Focus-AI/google-skill
+# Add the Focus marketplace (if not already added)
+/plugin marketplace add The-Focus-AI/claude-marketplace
+
+# Install the plugin
+/plugin install google-skill@focus-marketplace
 ```
+
+Then restart Claude Code.
 
 ### Direct Install
 
 ```bash
 /plugin install https://github.com/The-Focus-AI/google-skill
 ```
-
-Then restart Claude Code.
 
 ### For yt-dlp Features
 
