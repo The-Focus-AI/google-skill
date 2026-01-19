@@ -453,6 +453,43 @@ async function sendMessage(
   };
 }
 
+async function createDraft(
+  gmail: gmail_v1.Gmail,
+  to: string,
+  subject: string,
+  body: string,
+  html?: string,
+  attachmentPaths?: string[],
+  inlineImagePaths?: { path: string; cid: string }[]
+): Promise<{ id: string; messageId: string }> {
+  let attachments: Attachment[] | undefined;
+  let inlineImages: Attachment[] | undefined;
+
+  if (attachmentPaths && attachmentPaths.length > 0) {
+    attachments = await Promise.all(attachmentPaths.map(loadAttachment));
+  }
+
+  if (inlineImagePaths && inlineImagePaths.length > 0) {
+    inlineImages = await Promise.all(
+      inlineImagePaths.map(img => loadInlineImage(img.path, img.cid))
+    );
+  }
+
+  const raw = createRawMessage(to, subject, body, undefined, html, attachments, inlineImages);
+
+  const res = await gmail.users.drafts.create({
+    userId: "me",
+    requestBody: {
+      message: { raw },
+    },
+  });
+
+  return {
+    id: res.data.id!,
+    messageId: res.data.message?.id!,
+  };
+}
+
 async function listLabels(
   gmail: gmail_v1.Gmail
 ): Promise<{ id: string; name: string; type: string }[]> {
@@ -827,8 +864,22 @@ function markdownToEmailHtml(md: string, style: "client" | "labs"): { html: stri
     .replace(/`([^`]+)`/g, `<code ${styles.code}>$1</code>`)
     .replace(/^---$/gm, `<hr ${styles.hr}>`);
 
-  // Blockquotes
-  html = html.replace(/^> (.+)$/gm, `<blockquote ${styles.blockquote}><p ${styles.p}>$1</p></blockquote>`);
+  // Blockquotes - handle multi-line blockquotes as a group
+  // First, find all consecutive blockquote lines (including empty > lines)
+  html = html.replace(/(^>.*$\n?)+/gm, (match) => {
+    // Extract content from each line, removing the > prefix
+    const lines = match
+      .split("\n")
+      .filter((line) => line.trim())
+      .map((line) => line.replace(/^>\s?/, "").trim())
+      .filter((line) => line); // Remove empty lines
+
+    if (lines.length === 0) return "";
+
+    // Join all lines into paragraphs (split on empty content would create new <p>)
+    const content = lines.join("<br>");
+    return `<blockquote ${styles.blockquote}><p ${styles.p}>${content}</p></blockquote>`;
+  });
 
   // Unordered lists
   html = html.replace(/(^- .+$\n?)+/gm, (match) => {
@@ -850,8 +901,7 @@ function markdownToEmailHtml(md: string, style: "client" | "labs"): { html: stri
     return `<ol ${styles.ol}>\n${items}\n</ol>`;
   });
 
-  // Merge consecutive blockquotes
-  html = html.replace(/<\/blockquote>\n<blockquote[^>]*>/g, "\n");
+  // Note: consecutive blockquotes are now handled in the blockquote regex above
 
   // Wrap loose text in paragraphs
   const lines = html.split("\n");
@@ -1080,6 +1130,13 @@ GMAIL:
     --file=PATH           Markdown file to send (required)
     --style=client|labs   Focus.AI brand style (default: client)
     --subject=TEXT        Subject (default: first H1 in markdown)
+    --draft               Create as draft instead of sending
+  draft                   Create a draft email
+    --to=EMAIL            Recipient (required)
+    --subject=TEXT        Subject (required)
+    --body=TEXT           Body (required)
+    --html=HTML           HTML body (optional)
+    --attachment=PATH     File to attach (optional, comma-separated for multiple)
 
 CALENDAR:
   calendars               List all calendars
@@ -1221,7 +1278,8 @@ async function main(): Promise<void> {
 
       case "send-md": {
         const { to, file, style, subject } = flags;
-        if (!to || !file) fail("Required: --to, --file [--style=client|labs] [--subject=TEXT]");
+        const isDraft = flags.draft !== undefined;
+        if (!to || !file) fail("Required: --to, --file [--style=client|labs] [--subject=TEXT] [--draft]");
 
         // Read markdown file
         const mdPath = path.isAbsolute(file) ? file : path.resolve(process.cwd(), file);
@@ -1236,20 +1294,53 @@ async function main(): Promise<void> {
         const finalSubject = subject || title;
         const finalHtml = applyTemplate(template, finalSubject, contentHtml);
 
-        // Send email
+        // Send or create draft
         const gmail = await getGmailClient();
         const plainText = markdown; // Use original markdown as plain text fallback
-        const result = await sendMessage(gmail, to, finalSubject, plainText, finalHtml);
 
-        output({
-          success: true,
-          data: {
-            ...result,
-            message: `Styled email sent with Focus.AI ${templateStyle} template`,
-            subject: finalSubject,
-            style: templateStyle,
-          },
-        });
+        if (isDraft) {
+          const result = await createDraft(gmail, to, finalSubject, plainText, finalHtml);
+          output({
+            success: true,
+            data: {
+              ...result,
+              message: `Styled draft created with Focus.AI ${templateStyle} template`,
+              subject: finalSubject,
+              style: templateStyle,
+            },
+          });
+        } else {
+          const result = await sendMessage(gmail, to, finalSubject, plainText, finalHtml);
+          output({
+            success: true,
+            data: {
+              ...result,
+              message: `Styled email sent with Focus.AI ${templateStyle} template`,
+              subject: finalSubject,
+              style: templateStyle,
+            },
+          });
+        }
+        break;
+      }
+
+      case "draft": {
+        const { to, subject, body, html, attachment } = flags;
+        const inlineFlag = flags["inline"];
+        if (!to || !subject || !body) fail("Required: --to, --subject, --body [--html=<html-content>] [--attachment=<path>] [--inline=<path>:<cid>,...]");
+        const gmail = await getGmailClient();
+        const attachmentPaths = attachment ? attachment.split(",").map((p: string) => p.trim()) : undefined;
+        let inlineImages: { path: string; cid: string }[] | undefined;
+        if (inlineFlag) {
+          inlineImages = inlineFlag.split(",").map((item: string) => {
+            const [imgPath, cid] = item.trim().split(":");
+            return { path: imgPath, cid };
+          });
+        }
+        const result = await createDraft(gmail, to, subject, body, html, attachmentPaths, inlineImages);
+        const hasAttachment = attachmentPaths && attachmentPaths.length > 0;
+        const hasInline = inlineImages && inlineImages.length > 0;
+        output({ success: true, data: { ...result, message: hasAttachment || hasInline ? "Draft created with attachment(s)" : (html ? "HTML draft created" : "Draft created") } });
         break;
       }
 

@@ -1,7 +1,7 @@
 ---
 name: gmail
-description: This skill should be used when the user asks to "read emails", "send an email", "search gmail", "list messages", "check inbox", "manage labels", "find emails from", "check my calendar", "list events", "create an event", "schedule a meeting", "send styled email", "send markdown email", or mentions Gmail/Calendar operations. Provides Gmail and Google Calendar API integration.
-version: 0.6.0
+description: This skill should be used when the user asks to "read emails", "send an email", "search gmail", "list messages", "check inbox", "manage labels", "find emails from", "check my calendar", "list events", "create an event", "schedule a meeting", "send styled email", "send markdown email", "create a draft", "draft an email", or mentions Gmail/Calendar operations. Provides Gmail and Google Calendar API integration.
+version: 0.9.0
 ---
 
 # Gmail & Calendar Skill
@@ -81,6 +81,26 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send-md \
   --file="report.md" \
   --style=labs \
   --subject="Weekly Report"
+
+# Create as draft instead of sending:
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send-md \
+  --to="recipient@example.com" \
+  --file="report.md" \
+  --draft
+
+# Create a draft email (plain text or HTML)
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts draft \
+  --to="recipient@example.com" \
+  --subject="Draft Subject" \
+  --body="Draft content"
+
+# Create HTML draft with attachments
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts draft \
+  --to="recipient@example.com" \
+  --subject="Draft with files" \
+  --body="Plain text fallback" \
+  --html="<h1>Hello</h1>" \
+  --attachment="/path/to/file.pdf"
 ```
 
 ## Styled Email Templates
