@@ -749,10 +749,10 @@ function getEmailTemplate(style: "client" | "labs"): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{TITLE}}</title>
 </head>
-<body style="margin: 0; padding: 20px; background-color: #e8e6df; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<body style="margin: 0; padding: 20px; background-color: #e8e6df; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #000000;">
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 680px; margin: 0 auto;">
     <tr>
-      <td style="background: #f3f2ea; padding: 40px; border: 1px solid #1a1a1a; box-shadow: 8px 8px 0px 0px rgba(0,0,0,0.1);">
+      <td style="background: #f3f2ea; padding: 40px; border: 1px solid #000000; box-shadow: 8px 8px 0px 0px rgba(0,0,0,0.1); color: #000000;">
         {{CONTENT}}
       </td>
     </tr>
@@ -774,39 +774,39 @@ function markdownToEmailHtml(md: string, style: "client" | "labs"): { html: stri
   const isLabs = style === "labs";
   const styles = {
     h1: isLabs
-      ? 'style="font-size: 36px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.0; color: #1a1a1a; margin: 0 0 20px 0; padding-bottom: 20px; border-bottom: 2px solid #1a1a1a;"'
-      : 'style="font-size: 32px; font-weight: 700; letter-spacing: -0.045em; line-height: 1.1; color: #161616; margin: 0 0 20px 0; padding-bottom: 20px; border-bottom: 2px solid #0e3b46;"',
+      ? 'style="font-size: 36px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.0; color: #000000; margin: 0 0 20px 0; padding-bottom: 20px; border-bottom: 2px solid #000000;"'
+      : 'style="font-size: 32px; font-weight: 700; letter-spacing: -0.045em; line-height: 1.1; color: #000000; margin: 0 0 20px 0; padding-bottom: 20px; border-bottom: 2px solid #0e3b46;"',
     h2: isLabs
-      ? 'style="font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.2; color: #1a1a1a; margin: 32px 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #1a1a1a;"'
-      : 'style="font-size: 24px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; color: #161616; margin: 32px 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #d4d3cf;"',
+      ? 'style="font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.2; color: #000000; margin: 32px 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #000000;"'
+      : 'style="font-size: 24px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; color: #000000; margin: 32px 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #d4d3cf;"',
     h3: isLabs
-      ? 'style="font-size: 18px; font-weight: 700; line-height: 1.3; color: #1a1a1a; margin: 24px 0 12px 0;"'
-      : 'style="font-size: 18px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; color: #161616; margin: 24px 0 12px 0;"',
-    h4: 'style="font-size: 16px; font-weight: 700; color: #161616; margin: 20px 0 8px 0;"',
-    p: 'style="font-size: 16px; line-height: 1.6; color: #161616; margin: 0 0 16px 0;"',
+      ? 'style="font-size: 18px; font-weight: 700; line-height: 1.3; color: #000000; margin: 24px 0 12px 0;"'
+      : 'style="font-size: 18px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; color: #000000; margin: 24px 0 12px 0;"',
+    h4: 'style="font-size: 16px; font-weight: 700; color: #000000; margin: 20px 0 8px 0;"',
+    p: 'style="font-size: 16px; line-height: 1.6; color: #000000; margin: 0 0 16px 0;"',
     a: isLabs
       ? 'style="color: #0055aa; text-decoration: underline;"'
       : 'style="color: #0e3b46; text-decoration: none; border-bottom: 1px solid #0e3b46;"',
     blockquote: isLabs
-      ? 'style="margin: 20px 0; padding: 16px; background: white; border: 1px solid #1a1a1a; border-left: 4px solid #0055aa;"'
-      : 'style="margin: 20px 0; padding: 16px 20px; border-left: 3px solid #0e3b46; background: rgba(14, 59, 70, 0.03); font-style: italic; color: #4a4a4a;"',
+      ? 'style="margin: 20px 0; padding: 16px; background: white; border: 1px solid #000000; border-left: 4px solid #0055aa; color: #000000;"'
+      : 'style="margin: 20px 0; padding: 16px 20px; border-left: 3px solid #0e3b46; background: rgba(14, 59, 70, 0.03); font-style: italic; color: #000000;"',
     code: isLabs
-      ? 'style="font-family: \'Courier New\', monospace; font-size: 14px; background: #e6e4dc; padding: 2px 6px; border: 1px solid rgba(26, 26, 26, 0.2);"'
-      : 'style="font-family: \'Courier New\', monospace; font-size: 14px; background: rgba(14, 59, 70, 0.06); padding: 2px 6px; border-radius: 3px; color: #0e3b46;"',
-    pre: 'style="margin: 20px 0; padding: 20px; background: #161616; color: #faf9f6; overflow-x: auto; font-family: \'Courier New\', monospace; font-size: 14px; line-height: 1.5; border-radius: 6px;"',
+      ? 'style="font-family: \'Courier New\', monospace; font-size: 14px; background: #e6e4dc; padding: 2px 6px; border: 1px solid rgba(0, 0, 0, 0.2); color: #000000;"'
+      : 'style="font-family: \'Courier New\', monospace; font-size: 14px; background: rgba(14, 59, 70, 0.06); padding: 2px 6px; border-radius: 3px; color: #000000;"',
+    pre: 'style="margin: 20px 0; padding: 20px; background: #f4f4f4; color: #1a1a1a; overflow-x: auto; font-family: \'Courier New\', monospace; font-size: 14px; line-height: 1.5; border-radius: 6px; border: 1px solid #d0d0d0;"',
     hr: isLabs
-      ? 'style="margin: 32px 0; border: none; border-top: 2px solid #1a1a1a;"'
+      ? 'style="margin: 32px 0; border: none; border-top: 2px solid #000000;"'
       : 'style="margin: 32px 0; border: none; height: 1px; background: #d4d3cf;"',
     ul: 'style="margin: 0 0 16px 0; padding-left: 24px;"',
     ol: 'style="margin: 0 0 16px 0; padding-left: 24px;"',
-    li: 'style="font-size: 16px; line-height: 1.6; color: #161616; margin-bottom: 8px;"',
+    li: 'style="font-size: 16px; line-height: 1.6; color: #000000; margin-bottom: 8px;"',
     table: 'style="width: 100%; margin: 20px 0; border-collapse: collapse; font-size: 15px;"',
     th: isLabs
-      ? 'style="padding: 10px 12px; text-align: left; border: 1px solid #1a1a1a; font-family: \'Courier New\', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; background: #1a1a1a; color: #f3f2ea;"'
-      : 'style="padding: 10px 12px; text-align: left; border-bottom: 1px solid #d4d3cf; font-family: \'Courier New\', monospace; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; color: #0e3b46; background: rgba(14, 59, 70, 0.03);"',
+      ? 'style="padding: 10px 12px; text-align: left; border: 1px solid #000000; font-family: \'Courier New\', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; background: #000000; color: #ffffff;"'
+      : 'style="padding: 10px 12px; text-align: left; border-bottom: 1px solid #d4d3cf; font-family: \'Courier New\', monospace; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; color: #000000; background: rgba(14, 59, 70, 0.03);"',
     td: isLabs
-      ? 'style="padding: 10px 12px; text-align: left; border: 1px solid #1a1a1a; font-size: 15px;"'
-      : 'style="padding: 10px 12px; text-align: left; border-bottom: 1px solid #d4d3cf; font-size: 15px;"',
+      ? 'style="padding: 10px 12px; text-align: left; border: 1px solid #000000; font-size: 15px; color: #000000;"'
+      : 'style="padding: 10px 12px; text-align: left; border-bottom: 1px solid #d4d3cf; font-size: 15px; color: #000000;"',
     strong: 'style="font-weight: 700;"',
     em: 'style="font-style: italic;"',
   };
@@ -814,8 +814,15 @@ function markdownToEmailHtml(md: string, style: "client" | "labs"): { html: stri
   let html = md;
 
   // Handle code blocks first (before inline code)
+  // HTML-escape the code content to prevent markdown conversion inside code blocks
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, _lang, code) => {
-    return `<pre ${styles.pre}><code>${code.trim()}</code></pre>`;
+    const escaped = code.trim()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    return `<pre ${styles.pre}><code>${escaped}</code></pre>`;
   });
 
   // Handle tables

@@ -1,6 +1,6 @@
 {
   "name": "google-skill",
-  "version": "0.8.0",
+  "version": "0.10.0",
   "description": "Google services integration for Gmail, Calendar, Sheets, Docs, and YouTube using OAuth 2.0",
   "author": {
     "name": "Focus.AI"
