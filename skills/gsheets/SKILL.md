@@ -1,7 +1,7 @@
 ---
 name: gsheets
 description: This skill should be used when the user asks to "read spreadsheet", "write to sheet", "create spreadsheet", "list spreadsheets", "google sheets", "read cells", "write cells", "append rows", "sheet data", or mentions Google Sheets operations. Provides Google Sheets API integration for reading, writing, and managing spreadsheets.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Google Sheets Skill

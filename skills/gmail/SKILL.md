@@ -1,7 +1,7 @@
 ---
 name: gmail
 description: This skill should be used when the user asks to "read emails", "send an email", "search gmail", "list messages", "check inbox", "manage labels", "find emails from", "check my calendar", "list events", "create an event", "schedule a meeting", "send styled email", "send markdown email", "create a draft", "draft an email", or mentions Gmail/Calendar operations. Provides Gmail and Google Calendar API integration.
-version: 0.9.0
+version: 0.10.0
 ---
 
 # Gmail & Calendar Skill

@@ -1,7 +1,7 @@
 ---
 name: channel-summary
 description: This skill should be used when the user asks to "summarize a channel", "what are the latest videos from", "get recent videos and transcripts", "summarize youtube channel content", "create video summaries", "analyze channel videos", or wants a comprehensive summary of a YouTube channel's recent content with transcripts and key insights.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # YouTube Channel Summary Workflow

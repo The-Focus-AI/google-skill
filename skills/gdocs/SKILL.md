@@ -1,7 +1,7 @@
 ---
 name: gdocs
 description: This skill should be used when the user asks to "read document", "create document", "edit document", "google doc", "list documents", "insert text", "append text", "find and replace", "export document", "export to pdf", "export to word", "download as pdf", or mentions Google Docs operations. Provides Google Docs API integration for reading, writing, exporting, and managing documents.
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Google Docs Skill

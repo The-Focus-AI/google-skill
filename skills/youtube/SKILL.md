@@ -1,7 +1,7 @@
 ---
 name: youtube
 description: This skill should be used when the user asks about "youtube", "my videos", "my channel", "youtube search", "video comments", "playlists", "list videos", "channel stats", "video details", "download video", "get transcript", "video subtitles", "summarize channel", "latest videos from channel", "video timestamp", "link to timestamp", or mentions YouTube operations. Provides YouTube Data API integration and yt-dlp for downloading videos, transcripts, and metadata from any channel. Includes workflow for comprehensive channel video summaries.
-version: 0.4.0
+version: 0.5.0
 ---
 
 # YouTube Skill
