@@ -7,9 +7,9 @@
   },
   "keywords": ["gmail", "google", "calendar", "sheets", "docs", "youtube", "oauth"],
   "skills": [
-    "./.claude-plugin/skills/gmail",
-    "./.claude-plugin/skills/gsheets",
-    "./.claude-plugin/skills/gdocs",
-    "./.claude-plugin/skills/youtube"
+    "./skills/gmail",
+    "./skills/gsheets",
+    "./skills/gdocs",
+    "./skills/youtube"
   ]
 }

@@ -10,7 +10,7 @@ Create, read, write, and manage Google Sheets spreadsheets.
 
 ## First-Time Setup
 
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts auth` to authenticate with Google. This opens a browser for OAuth consent and grants access to all Google services including Sheets.
+Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts auth` to authenticate with Google. This opens a browser for OAuth consent and grants access to all Google services including Sheets.
 
 Tokens are stored per-project in `.claude/google-skill.local.json`.
 
@@ -22,32 +22,32 @@ By default, this skill uses embedded OAuth credentials. To use your own Google C
 
 ```bash
 # List your spreadsheets
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts list
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts list --max=50
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts list
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts list --max=50
 
 # Get spreadsheet metadata (title, sheets, etc.)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts get <spreadsheetId>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts get <spreadsheetId>
 
 # Read cell values (A1 notation)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts read <spreadsheetId> "Sheet1!A1:D10"
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts read <spreadsheetId> "Sheet1!A1:D10"
 
 # Write values to cells
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts write <spreadsheetId> "Sheet1!A1" \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts write <spreadsheetId> "Sheet1!A1" \
   --values='[["Hello","World"],["Row 2","Data"]]'
 
 # Append rows to end of sheet
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts append <spreadsheetId> "Sheet1!A:D" \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts append <spreadsheetId> "Sheet1!A:D" \
   --values='[["New","Row","Data"]]'
 
 # Clear a range
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts clear <spreadsheetId> "Sheet1!A1:D10"
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts clear <spreadsheetId> "Sheet1!A1:D10"
 
 # Create new spreadsheet
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts create --title="My Spreadsheet"
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts create --title="Project Data" --sheets="Q1,Q2,Q3,Q4"
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts create --title="My Spreadsheet"
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts create --title="Project Data" --sheets="Q1,Q2,Q3,Q4"
 
 # Add new sheet/tab to existing spreadsheet
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts add-sheet <spreadsheetId> --title="New Tab"
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts add-sheet <spreadsheetId> --title="New Tab"
 ```
 
 ## A1 Notation Reference
@@ -80,5 +80,5 @@ All commands return JSON with `success` and `data` fields.
 ## Help
 
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gsheets.ts --help
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gsheets/scripts/gsheets.ts --help
 ```

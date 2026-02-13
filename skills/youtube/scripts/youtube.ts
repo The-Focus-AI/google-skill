@@ -5,8 +5,8 @@
  */
 
 import { google, youtube_v3 } from "googleapis";
-import { loadToken, CREDENTIALS_PATH } from "./lib/auth.js";
-import { output, fail, parseArgs } from "./lib/output.js";
+import { loadToken, CREDENTIALS_PATH } from "../../../scripts/lib/auth.js";
+import { output, fail, parseArgs } from "../../../scripts/lib/output.js";
 import { execSync, spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";

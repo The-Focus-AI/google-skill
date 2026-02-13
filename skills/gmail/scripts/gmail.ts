@@ -12,9 +12,9 @@ import {
   getProjectTokenPath,
   CREDENTIALS_PATH,
   getGlobalConfigDir,
-} from "./lib/auth.js";
+} from "../../../scripts/lib/auth.js";
 
-import { output, fail, parseArgs } from "./lib/output.js";
+import { output, fail, parseArgs } from "../../../scripts/lib/output.js";
 
 // ============================================================================
 // Gmail Operations

@@ -10,7 +10,7 @@ Read, send, search Gmail. List, create, delete calendar events.
 
 ## First-Time Setup
 
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts auth` to authenticate with Google. This opens a browser for OAuth consent.
+Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts auth` to authenticate with Google. This opens a browser for OAuth consent.
 
 Tokens are stored per-project in `.claude/google-skill.local.json`.
 
@@ -28,34 +28,34 @@ The skill will automatically use your credentials if that file exists.
 
 ```bash
 # List messages
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts list
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts list --query="is:unread" --max=5
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts list
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts list --query="is:unread" --max=5
 
 # Read message
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts read <message-id>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts read <message-id>
 
 # Send email (plain text)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts send \
   --to="recipient@example.com" \
   --subject="Hello" \
   --body="Message content"
 
 # Send HTML email
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts send \
   --to="recipient@example.com" \
   --subject="Hello" \
   --body="Plain text fallback" \
   --html="<h1>Hello</h1><p>HTML content</p>"
 
 # Send with attachments
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts send \
   --to="recipient@example.com" \
   --subject="With files" \
   --body="See attached" \
   --attachment="/path/to/file.pdf,/path/to/other.docx"
 
 # Send HTML with inline images
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts send \
   --to="recipient@example.com" \
   --subject="Newsletter" \
   --body="Plain text version" \
@@ -63,39 +63,39 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send \
   --inline="/path/to/logo.png:logo"
 
 # Labels
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts labels
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts label <id> --add="IMPORTANT"
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts labels
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts label <id> --add="IMPORTANT"
 
 # Download as EML
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts download <message-id>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts download <message-id>
 
 # Send markdown as styled HTML email (Focus.AI branding)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send-md \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts send-md \
   --to="recipient@example.com" \
   --file="/path/to/report.md" \
   --style=client  # or "labs" for Focus.AI Labs style
 
 # Subject defaults to first H1 in markdown, or specify explicitly:
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send-md \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts send-md \
   --to="recipient@example.com" \
   --file="report.md" \
   --style=labs \
   --subject="Weekly Report"
 
 # Create as draft instead of sending:
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts send-md \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts send-md \
   --to="recipient@example.com" \
   --file="report.md" \
   --draft
 
 # Create a draft email (plain text or HTML)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts draft \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts draft \
   --to="recipient@example.com" \
   --subject="Draft Subject" \
   --body="Draft content"
 
 # Create HTML draft with attachments
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts draft \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts draft \
   --to="recipient@example.com" \
   --subject="Draft with files" \
   --body="Plain text fallback" \
@@ -116,17 +116,17 @@ Supports: headings, bold/italic, links, code blocks, tables, lists, blockquotes,
 
 ```bash
 # List calendars
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts calendars
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts calendars
 
 # List upcoming events
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts events
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts events --max=20
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts events
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts events --max=20
 
 # Get event details
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts event <event-id>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts event <event-id>
 
 # Create event
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts create \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts create \
   --summary="Meeting" \
   --start="2026-01-15T10:00:00" \
   --end="2026-01-15T11:00:00" \
@@ -134,7 +134,7 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts create \
   --description="Discuss project"
 
 # Delete event
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts delete <event-id>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts delete <event-id>
 ```
 
 ## Search Operators (Gmail)
@@ -156,11 +156,11 @@ All commands return JSON with `success` and `data` fields.
 ## Check Auth
 
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts check
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts check
 ```
 
 ## Help
 
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts --help
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts --help
 ```

@@ -74,7 +74,7 @@ bun add googleapis @google-cloud/local-auth
 Run the authentication command:
 
 ```bash
-npx tsx .claude-plugin/skills/gmail/scripts/gmail.ts auth
+npx tsx skills/gmail/scripts/gmail.ts auth
 ```
 
 This will:
@@ -119,7 +119,7 @@ token.json
 To re-authenticate:
 ```bash
 rm token.json
-npx tsx .claude-plugin/skills/gmail/scripts/gmail.ts auth
+npx tsx skills/gmail/scripts/gmail.ts auth
 ```
 
 ## Troubleshooting
@@ -134,7 +134,7 @@ npx tsx .claude-plugin/skills/gmail/scripts/gmail.ts auth
 
 ```bash
 rm token.json
-npx tsx .claude-plugin/skills/gmail/scripts/gmail.ts auth
+npx tsx skills/gmail/scripts/gmail.ts auth
 ```
 
 ### "Insufficient Permission"

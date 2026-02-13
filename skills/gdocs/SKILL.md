@@ -10,7 +10,7 @@ Create, read, edit, and export Google Docs documents.
 
 ## First-Time Setup
 
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gmail.ts auth` to authenticate with Google. This opens a browser for OAuth consent and grants access to all Google services including Docs.
+Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gmail/scripts/gmail.ts auth` to authenticate with Google. This opens a browser for OAuth consent and grants access to all Google services including Docs.
 
 Tokens are stored per-project in `.claude/google-skill.local.json`.
 
@@ -22,49 +22,49 @@ By default, this skill uses embedded OAuth credentials. To use your own Google C
 
 ```bash
 # List your documents
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts list
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts list --max=50
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts list
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts list --max=50
 
 # Get document metadata
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts get <documentId>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts get <documentId>
 
 # Read document content as plain text
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts read <documentId>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts read <documentId>
 
 # Create new document
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts create --title="My Document"
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts create --title="My Document"
 
 # Insert text at beginning (index 1)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts insert <documentId> --text="Hello World\n"
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts insert <documentId> --text="Hello World\n"
 
 # Insert text at specific position
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts insert <documentId> --text="Inserted here" --index=50
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts insert <documentId> --text="Inserted here" --index=50
 
 # Append text to end of document
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts append <documentId> --text="\n\nNew paragraph at the end."
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts append <documentId> --text="\n\nNew paragraph at the end."
 
 # Find and replace text
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts replace <documentId> \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts replace <documentId> \
   --find="old text" \
   --replace="new text"
 
 # Find and replace (case-sensitive)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts replace <documentId> \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts replace <documentId> \
   --find="Hello" \
   --replace="Hi" \
   --match-case
 
 # Export to PDF (default)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts export <documentId>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts export <documentId>
 
 # Export to Word (.docx)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts export <documentId> --format=docx
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts export <documentId> --format=docx
 
 # Export to other formats (odt, txt, html, rtf, epub)
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts export <documentId> --format=odt
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts export <documentId> --format=odt
 
 # Export to specific file path
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts export <documentId> --format=pdf --output=./report.pdf
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts export <documentId> --format=pdf --output=./report.pdf
 ```
 
 ## Export Formats
@@ -100,5 +100,5 @@ All commands return JSON with `success` and `data` fields.
 ## Help
 
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/gdocs.ts --help
+npx tsx ${CLAUDE_PLUGIN_ROOT}/skills/gdocs/scripts/gdocs.ts --help
 ```

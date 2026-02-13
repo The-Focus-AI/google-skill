@@ -4,10 +4,10 @@
   "description": "Google services skill for Claude Code - Gmail, Calendar, Sheets, Docs, YouTube",
   "type": "module",
   "scripts": {
-    "gmail": "npx tsx scripts/gmail.ts",
-    "gsheets": "npx tsx scripts/gsheets.ts",
-    "gdocs": "npx tsx scripts/gdocs.ts",
-    "youtube": "npx tsx scripts/youtube.ts"
+    "gmail": "npx tsx skills/gmail/scripts/gmail.ts",
+    "gsheets": "npx tsx skills/gsheets/scripts/gsheets.ts",
+    "gdocs": "npx tsx skills/gdocs/scripts/gdocs.ts",
+    "youtube": "npx tsx skills/youtube/scripts/youtube.ts"
   },
   "dependencies": {
     "googleapis": "^144.0.0",

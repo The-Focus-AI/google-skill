@@ -5,8 +5,8 @@
  */
 
 import { google, sheets_v4, drive_v3 } from "googleapis";
-import { loadToken, CREDENTIALS_PATH } from "./lib/auth.js";
-import { output, fail, parseArgs } from "./lib/output.js";
+import { loadToken, CREDENTIALS_PATH } from "../../../scripts/lib/auth.js";
+import { output, fail, parseArgs } from "../../../scripts/lib/output.js";
 
 // ============================================================================
 // Sheets Client
